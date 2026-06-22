@@ -1,0 +1,127 @@
+// File: tb_Memory.sv
+// Memory Testbench
+
+`timescale 1ns/1ps
+
+module tb_Memory();
+    parameter ADDR_WIDTH = 8;
+    parameter DATA_WIDTH = 8;
+
+    logic clk;
+    logic WE;
+    logic [ADDR_WIDTH-1:0] addr;
+    logic [DATA_WIDTH-1:0] wd;
+    logic [DATA_WIDTH-1:0] rd;
+   
+    integer pass_count, fail_count;
+
+    // Instantiate Memory
+    Memory #(ADDR_WIDTH, DATA_WIDTH) uut (
+        .clk(clk),
+        .WE(WE),
+        .addr(addr),
+        .wd(wd),
+        .rd(rd)
+    );
+
+    // Clock Generation (100 MHz)
+    always #5 clk = ~clk;
+
+    initial begin
+        pass_count = 0;
+        fail_count = 0;
+       
+        clk  = 0;
+        WE   = 0;
+        addr = 0;
+        wd   = 0;
+
+        $display("========================================");
+        $display("--- Memory Unit Test Started ---");
+        $display("========================================");
+
+        // 1. Program Instructions Verification
+        $display("\n[Initial Program Verification]");
+       
+        @(posedge clk); #2;
+        addr = 8'h00; @(posedge clk); #2;
+        check_memory("Instruction 0 (LDA 9)", 8'h09, rd);
+       
+        addr = 8'h01; @(posedge clk); #2;
+        check_memory("Instruction 1 (ADD A) - Opcode 2", 8'h2A, rd);
+       
+        addr = 8'h02; @(posedge clk); #2;
+        check_memory("Instruction 2 (STA B)", 8'h3B, rd);
+       
+        addr = 8'h03; @(posedge clk); #2;
+        check_memory("Instruction 3 (OUT)", 8'h40, rd);
+       
+        addr = 8'h04; @(posedge clk); #2;
+        check_memory("Instruction 4 (HALT)", 8'hF0, rd);
+
+        // 2. Data Section Verification
+        $display("\n[Data Section Verification]");
+       
+        addr = 8'h09; @(posedge clk); #2;
+        check_memory("Operand 1 at 09h", 8'd5, rd);
+       
+        addr = 8'h0A; @(posedge clk); #2;
+        check_memory("Operand 2 at 0Ah", 8'd3, rd);
+       
+        addr = 8'h0B; @(posedge clk); #2;
+        check_memory("Result Location at 0Bh", 8'd0, rd);
+
+        // 3. Write/Read Test
+        $display("\n[Write/Read Test]");
+       
+        @(posedge clk);
+        addr = 8'hFF;
+        wd   = 8'h55;
+        WE   = 1;
+        @(posedge clk);
+        WE   = 0;
+        wd   = 8'h00;
+       
+        addr = 8'hFF;
+        @(posedge clk); #2;
+        check_memory("Write/Read at FFh", 8'h55, rd);
+
+        // 4. Overwrite Test
+        $display("\n[Overwrite Test]");
+       
+        @(posedge clk);
+        addr = 8'hFF;
+        wd   = 8'hAA;
+        WE   = 1;
+        @(posedge clk);
+        WE   = 0;
+
+        addr = 8'hFF;
+        @(posedge clk); #2;
+        check_memory("Overwrite at FFh (55->AA)", 8'hAA, rd);
+
+        // Test Summary
+        $display("\n========================================");
+        $display("Test Summary: %0d PASSED, %0d FAILED", pass_count, fail_count);
+        $display("========================================");
+       
+        if (fail_count == 0)
+            $display("Memory Testbench: ALL TESTS PASSED");
+        else
+            $display("Memory Testbench: SOME TESTS FAILED");
+       
+        #20;
+        $stop;
+    end
+   
+    task check_memory(input string test_name, input [7:0] expected, input [7:0] actual);
+        if (expected === actual) begin
+            $display("%s: PASS (Expected=%h, Got=%h)", test_name, expected, actual);
+            pass_count++;
+        end else begin
+            $display("%s: FAIL (Expected=%h, Got=%h)", test_name, expected, actual);
+            fail_count++;
+        end
+    endtask
+
+endmodule

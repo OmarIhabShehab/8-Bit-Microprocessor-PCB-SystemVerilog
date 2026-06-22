@@ -1,0 +1,128 @@
+// File: tb_ControlUnit.sv
+`timescale 1ns/1ps
+
+module tb_ControlUnit();
+    // Inputs
+    logic [3:0] opcode;
+    logic [5:0] T;
+    logic reset;
+
+    // Outputs
+    logic Cp, MAR_sel, WE, Li, LB, LA, Su, Lo, HALT, Reset_ring;
+    
+    integer pass_count, fail_count;
+
+    // Connect the Control Unit
+    ControlUnit uut (.*);
+
+    task check_signal(input string test_name, input logic actual, input logic expected);
+        if (actual === expected) begin
+            $display("   %s: PASS", test_name);
+            pass_count++;
+        end else begin
+            $display("   %s: FAIL (Expected=%0d, Got=%0d)", test_name, expected, actual);
+            fail_count++;
+        end
+    endtask
+
+    initial begin
+        pass_count = 0;
+        fail_count = 0;
+        
+        // Initialize
+        reset = 1; T = 6'b000000; opcode = 4'b0000;
+        #10 reset = 0;
+
+        $display("--- Starting Control Unit Logic Test ---");
+    
+
+
+        // 1. Test FETCH Cycle
+ 
+        $display("\n[FETCH CYCLE]");
+        
+        T = 6'b000001; @(posedge clk); #2; // T0
+        check_signal("T0: MAR_sel=0 (Select PC)", MAR_sel, 1'b0);
+        check_signal("T0: Li=1 (Load IR)", Li, 1'b1);
+        
+        T = 6'b000010; @(posedge clk); #2; // T1
+        check_signal("T1: Cp=1 (Increment PC)", Cp, 1'b1);
+
+ 
+        // 2. Test LDA (0001)
+
+        $display("\n[LDA Instruction - 0001]");
+        opcode = 4'b0001; 
+        T = 6'b000100; @(posedge clk); #2; // T2
+        check_signal("T2 LDA: MAR_sel=1 (IR Address)", MAR_sel, 1'b1);
+        T = 6'b001000; @(posedge clk); #2; // T3
+        check_signal("T3 LDA: LA=1 (Load AC)", LA, 1'b1);
+
+
+        // 3. Test ADD (0010)
+ 
+        $display("\n[ADD Instruction - 0010]");
+        opcode = 4'b0010;
+        T = 6'b000100; @(posedge clk); #2; // T2
+        check_signal("T2 ADD: MAR_sel=1", MAR_sel, 1'b1);
+        T = 6'b001000; @(posedge clk); #2; // T3
+        check_signal("T3 ADD: LB=1 (Load B)", LB, 1'b1);
+        T = 6'b010000; @(posedge clk); #2; // T4
+        check_signal("T4 ADD: Su=0 (Add)", Su, 1'b0);
+        check_signal("T4 ADD: LA=1 (Load AC)", LA, 1'b1);
+
+ 
+        // 4. Test SUB (0011)
+
+        $display("\n[SUB Instruction - 0011]");
+        opcode = 4'b0011;
+        T = 6'b000100; @(posedge clk); #2; // T2
+        T = 6'b001000; @(posedge clk); #2; // T3
+        check_signal("T3 SUB: LB=1", LB, 1'b1);
+        T = 6'b010000; @(posedge clk); #2; // T4
+        check_signal("T4 SUB: Su=1 (Subtract)", Su, 1'b1);
+        check_signal("T4 SUB: LA=1", LA, 1'b1);
+
+        // 5. Test STA (0100)
+       
+        $display("\n[STA Instruction - 0100]");
+        opcode = 4'b0100;
+        T = 6'b000100; @(posedge clk); #2;// T2
+        check_signal("T2 STA: MAR_sel=1", MAR_sel, 1'b1);
+        T = 6'b001000; @(posedge clk); #2; // T3
+        check_signal("T3 STA: WE=1 (Write Enable)", WE, 1'b1);
+
+        // 6. Test OUT (0101)
+     $display("\n[OUT Instruction - 0101]");
+        opcode = 4'b0101;
+        T = 6'b000100; @(posedge clk); #2; // T2
+        check_signal("T2 OUT: Lo=1 (Load Output)", Lo, 1'b1);
+
+      // 7. Test JMP (0110)
+
+        $display("\n[JMP Instruction - 0110]");
+        opcode = 4'b0110;
+        T = 6'b000100; @(posedge clk); #2; // T2
+        check_signal("T2 JMP: Cp=1 (PC Jump)", Cp, 1'b1);
+
+        // 8. Test HALT (1111)
+    
+        $display("\n[HALT Instruction - 1111]");
+        opcode = 4'b1111;
+        T = 6'b000100; @(posedge clk); #2; // T2
+        check_signal("T2 HALT: HALT=1", HALT, 1'b1);
+        check_signal("T2 HALT: Reset_ring=1", Reset_ring, 1'b1);
+
+
+        $display("Test Summary: %0d PASSED, %0d FAILED", pass_count, fail_count);
+ 
+        
+        if (fail_count == 0)
+            $display("ControlUnit Testbench: ALL TESTS PASSED");
+        else
+            $display("ControlUnit Testbench: SOME TESTS FAILED");
+        
+        $stop;
+    end
+
+endmodule

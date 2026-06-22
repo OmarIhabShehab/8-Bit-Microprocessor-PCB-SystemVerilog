@@ -1,0 +1,17 @@
+// File: ALU.sv
+module ALU #(parameter WIDTH = 8) (
+    input  logic [WIDTH-1:0] A,
+    input  logic [WIDTH-1:0] B,
+    input  logic             Su, // Control signal for add/sub or specific operation
+    output logic [WIDTH-1:0] ALU_Out
+);
+
+    // Structural-style addition
+    always_comb begin
+        if (Su)
+            ALU_Out = A + B;
+        else
+            ALU_Out = A; // Pass through if needed
+    end
+
+endmodule
